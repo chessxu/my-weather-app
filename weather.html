@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Weather Query</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; max-width: 480px; margin: auto; }
+    .weather‑card { border: 1px solid #ccc; border-radius: 8px; padding: 12px; margin-top: 10px; }
+    .forecast { margin-top: 20px; }
+    .lang-switch { margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+  <div class="lang-switch">
+    <button id="enBtn">English</button>
+    <button id="zhBtn">中文</button>
+  </div>
+
+  <h2 id="title">Weather Query</h2>
+
+  <div>
+    <input type="text" id="cityInput" placeholder="Enter city or country" style="width: 100%; padding: 8px;" />
+    <button id="searchBtn" style="margin-top: 8px; padding: 8px 16px;">Search</button>
+  </div>
+
+  <div id="result"></div>
+
+  <script>
+    const apiKey = 'a57d420425845f7fccd7b6420b8aca76';
+
+    let lang = 'en';
+
+    document.getElementById('enBtn').onclick = () => { lang = 'en'; updateTexts(); };
+    document.getElementById('zhBtn').onclick = () => { lang = 'zh'; updateTexts(); };
+
+    function updateTexts() {
+      if (lang === 'en') {
+        document.getElementById('title').innerText = 'Weather Query';
+        document.getElementById('cityInput').placeholder = 'Enter city or country';
+        document.getElementById('searchBtn').innerText = 'Search';
+      } else {
+        document.getElementById('title').innerText = '天气查询';
+        document.getElementById('cityInput').placeholder = '输入城市或国家';
+        document.getElementById('searchBtn').innerText = '查询天气';
+      }
+    }
+
+    updateTexts();
+
+    document.getElementById('searchBtn').onclick = async () => {
+      const city = document.getElementById('cityInput').value.trim();
+      if (!city) return;
+
+      // 调用 current weather
+      const urlNow = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${apiKey}&units=metric&lang=${lang}`;
+      let resNow = await fetch(urlNow);
+      if (!resNow.ok) {
+        document.getElementById('result').innerHTML = `<p>${lang==='en' ? 'City not found' : '未找到城市'}</p>`;
+        return;
+      }
+      const dataNow = await resNow.json();
+
+      // 调用 forecast 5 day / 3‑hour → 取未来 3 天
+      const urlFc = `https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(city)}&appid=${apiKey}&units=metric&lang=${lang}`;
+      let resFc = await fetch(urlFc);
+      const dataFc = await resFc.json();
+
+      // build result
+      const sunrise = new Date(dataNow.sys.sunrise * 1000);
+      const sunset  = new Date(dataNow.sys.sunset  * 1000);
+      let html = `
+        <div class="weather‑card">
+          <h3>${lang==='en' ? 'Current Weather for' : '当前天气 —'} ${dataNow.name}</h3>
+          <p>${lang==='en' ? 'Temperature' : '温度'}: ${dataNow.main.temp}°C</p>
+          <p>${lang==='en' ? 'Humidity' : '湿度'}: ${dataNow.main.humidity}%</p>
+          <p>${lang==='en' ? 'Wind Speed' : '风速'}: ${dataNow.wind.speed} m/s</p>
+          <p>${lang==='en' ? 'Sunrise' : '日出'}: ${sunrise.toLocaleTimeString()} | ${lang==='en' ? 'Sunset' : '日落'}: ${sunset.toLocaleTimeString()}</p>
+        </div>
+      `;
+
+      // 3‑day forecast
+      html += `<div class="forecast"><h4>${lang==='en' ? '3‑Day Forecast' : '三天预报'}</h4>`;
+
+      // 从 forecast.list 中取未来三天中 daily show noon forecast
+      const nowTs = Date.now()/1000;
+      const daySeconds = 24 * 3600;
+      const forecastDays = {};
+
+      dataFc.list.forEach(item => {
+        const d = new Date(item.dt * 1000);
+        const key = d.getUTCDate();
+        if (item.dt > nowTs && Object.keys(forecastDays).length < 3) {
+          if (!forecastDays[key] && d.getUTCHours() === 12) {
+            forecastDays[key] = item;
+          }
+        }
+      });
+
+      Object.values(forecastDays).forEach(item => {
+        const d = new Date(item.dt*1000);
+        html += `
+          <div class="weather‑card">
+            <p>${d.toLocaleDateString()} — ${lang==='en' ? 'Temp' : '温度'}: ${item.main.temp}°C, ${item.weather[0].description}</p>
+          </div>
+        `;
+      });
+
+      html += `</div>`;
+
+      document.getElementById('result').innerHTML = html;
+    };
+  </script>
+</body>
+</html>
