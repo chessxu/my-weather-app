@@ -2,13 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Weather Query</title>
+  <title>Weather Forecast</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; max-width: 480px; margin: auto; }
+    body { font-family: Arial, sans-serif; max-width: 480px; margin: auto; padding: 20px; }
     .weather-card { border: 1px solid #ccc; border-radius: 8px; padding: 12px; margin-top: 10px; }
     .forecast { margin-top: 20px; }
     .lang-switch { margin-bottom: 10px; }
-    button { margin-right: 6px; padding: 6px 12px; }
+    button { padding: 8px 12px; margin-right: 5px; }
+    input { width: 100%; padding: 8px; margin-top: 8px; }
   </style>
 </head>
 <body>
@@ -17,32 +18,31 @@
     <button id="zhBtn">中文</button>
   </div>
 
-  <h2 id="title">Weather Query</h2>
+  <h2 id="title">Weather Forecast</h2>
 
   <div>
-    <input type="text" id="cityInput" placeholder="Enter city or country" style="width: 100%; padding: 8px;" />
-    <button id="searchBtn" style="margin-top: 8px; padding: 8px 16px;">Search</button>
+    <input type="text" id="cityInput" placeholder="Enter city or country" />
+    <button id="searchBtn">Search</button>
   </div>
 
   <div id="result"></div>
 
   <script>
-    const apiKey = '143454aa39bbe3442a890cdbf3f9db36'; // 你提供的 API KEY
-
+    const apiKey = '143454aa39bbe3442a890cdbf3f9db36'; // 你的 forecast API key
     let lang = 'en';
 
-    document.getElementById('enBtn').onclick = () => { lang = 'en'; updateTexts(); };
-    document.getElementById('zhBtn').onclick = () => { lang = 'zh'; updateTexts(); };
+    document.getElementById('enBtn').onclick = () => { lang='en'; updateTexts(); };
+    document.getElementById('zhBtn').onclick = () => { lang='zh'; updateTexts(); };
 
-    function updateTexts() {
-      if (lang === 'en') {
-        document.getElementById('title').innerText = 'Weather Query';
-        document.getElementById('cityInput').placeholder = 'Enter city or country';
-        document.getElementById('searchBtn').innerText = 'Search';
+    function updateTexts(){
+      if(lang==='en'){
+        document.getElementById('title').innerText='Weather Forecast';
+        document.getElementById('cityInput').placeholder='Enter city or country';
+        document.getElementById('searchBtn').innerText='Search';
       } else {
-        document.getElementById('title').innerText = '天气查询';
-        document.getElementById('cityInput').placeholder = '输入城市或国家';
-        document.getElementById('searchBtn').innerText = '查询天气';
+        document.getElementById('title').innerText='天气预报';
+        document.getElementById('cityInput').placeholder='输入城市或国家';
+        document.getElementById('searchBtn').innerText='查询天气';
       }
     }
 
@@ -50,54 +50,52 @@
 
     document.getElementById('searchBtn').onclick = async () => {
       const city = document.getElementById('cityInput').value.trim();
-      if (!city) return;
+      if(!city) return;
 
+      const url = `https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(city)}&units=metric&appid=${apiKey}&lang=${lang}`;
+      
       try {
-        // 先获取当前天气（包含 sunrise/sunset）
-        const urlNow = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${apiKey}&units=metric&lang=${lang}`;
-        const resNow = await fetch(urlNow);
-        if (!resNow.ok) { document.getElementById('result').innerHTML = `<p>${lang==='en' ? 'City not found' : '未找到城市'}</p>`; return; }
-        const dataNow = await resNow.json();
+        const res = await fetch(url);
+        if(!res.ok){
+          document.getElementById('result').innerHTML = `<p>${lang==='en'?'City not found':'未找到城市'}</p>`;
+          return;
+        }
+        const data = await res.json();
 
-        // 再获取 5-day forecast
-        const urlFc = `https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(city)}&appid=${apiKey}&units=metric&lang=${lang}`;
-        const resFc = await fetch(urlFc);
-        const dataFc = await resFc.json();
-
-        // 当前天气
-        const sunrise = new Date(dataNow.sys.sunrise * 1000);
-        const sunset  = new Date(dataNow.sys.sunset  * 1000);
+        // 当前天气：取 list[0]
+        const now = data.list[0];
+        const nowDt = new Date(now.dt * 1000);
         let html = `
           <div class="weather-card">
-            <h3>${lang==='en' ? 'Current Weather for' : '当前天气 —'} ${dataNow.name}</h3>
-            <p>${lang==='en' ? 'Temperature' : '温度'}: ${dataNow.main.temp}°C</p>
-            <p>${lang==='en' ? 'Humidity' : '湿度'}: ${dataNow.main.humidity}%</p>
-            <p>${lang==='en' ? 'Wind Speed' : '风速'}: ${dataNow.wind.speed} m/s</p>
-            <p>${lang==='en' ? 'Sunrise' : '日出'}: ${sunrise.toLocaleTimeString()} | ${lang==='en' ? 'Sunset' : '日落'}: ${sunset.toLocaleTimeString()}</p>
+            <h3>${lang==='en'?'Current Weather':'当前天气'} — ${data.city.name}</h3>
+            <p>${lang==='en'?'Temperature':'温度'}: ${now.main.temp}°C</p>
+            <p>${lang==='en'?'Humidity':'湿度'}: ${now.main.humidity}%</p>
+            <p>${lang==='en'?'Wind Speed':'风速'}: ${now.wind.speed} m/s</p>
+            <p>${lang==='en'?'Time':'时间'}: ${nowDt.toLocaleString()}</p>
+            <p>${lang==='en'?'Sunrise/Sunset':'日出/日落'}: N/A</p>
           </div>
         `;
 
-        // 3-day forecast
-        html += `<div class="forecast"><h4>${lang==='en' ? '3-Day Forecast' : '三天预报'}</h4>`;
-        const nowTs = Date.now()/1000;
-        const forecastDays = {};
+        // 3-Day Forecast
+        html += `<div class="forecast"><h4>${lang==='en'?'3-Day Forecast':'三天预报'}</h4>`;
 
-        // 从 forecast.list 中取未来三天中每天 12:00 的数据
-        dataFc.list.forEach(item => {
-          const d = new Date(item.dt * 1000);
+        const forecastDays = {};
+        data.list.forEach(item=>{
+          const d = new Date(item.dt*1000);
           const key = d.getUTCDate();
-          if (item.dt > nowTs && Object.keys(forecastDays).length < 3) {
-            if (!forecastDays[key] && d.getUTCHours() === 12) {
-              forecastDays[key] = item;
+          if(Object.keys(forecastDays).length < 3){
+            // 挑选每天中午 12 点的预测，或者最接近的
+            if(!forecastDays[key] && d.getUTCHours()===12){
+              forecastDays[key]=item;
             }
           }
         });
 
-        Object.values(forecastDays).forEach(item => {
+        Object.values(forecastDays).forEach(item=>{
           const d = new Date(item.dt*1000);
           html += `
             <div class="weather-card">
-              <p>${d.toLocaleDateString()} — ${lang==='en' ? 'Temp' : '温度'}: ${item.main.temp}°C, ${item.weather[0].description}</p>
+              <p>${d.toLocaleDateString()} — ${lang==='en'?'Temp':'温度'}: ${item.main.temp}°C, ${item.weather[0].description}</p>
             </div>
           `;
         });
@@ -105,11 +103,10 @@
         html += `</div>`;
         document.getElementById('result').innerHTML = html;
 
-      } catch (err) {
-        document.getElementById('result').innerHTML = `<p>${lang==='en' ? 'Error fetching data' : '获取数据出错'}</p>`;
-        console.error(err);
+      } catch(err){
+        document.getElementById('result').innerHTML = `<p>${lang==='en'?'Error fetching data':'获取数据出错'}</p>`;
       }
-    };
+    }
   </script>
 </body>
 </html>
